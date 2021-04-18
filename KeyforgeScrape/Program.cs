@@ -36,7 +36,13 @@ namespace KeyforgeScrape
             {
                 client.DefaultRequestHeaders.Remove("Authorization");
                 client.DefaultRequestHeaders.Add("Authorization", token);
-                var json = await client.GetStringAsync(url);
+
+                var response = await client.GetAsync(url);
+                if (response.StatusCode == System.Net.HttpStatusCode.NotFound) return null;
+
+                response.EnsureSuccessStatusCode();
+                var json = await response.Content.ReadAsStringAsync();
+
                 var decks = JsonConvert.DeserializeObject<ResponseData>(json);
                 return decks;
             }
@@ -48,7 +54,7 @@ namespace KeyforgeScrape
             return null;
         }
 
-        static async Task AddDeckToDecksOfKeyforge(string deckId, string token)
+        static async Task<bool> AddDeckToDecksOfKeyforge(string deckId, string token)
         {
             try
             {
@@ -58,15 +64,15 @@ namespace KeyforgeScrape
                 var response = await client.PostAsync(url, null);
                 response.EnsureSuccessStatusCode();
                 var content = await response.Content.ReadAsStringAsync();
-                Console.WriteLine($"Adding deck {deckId}, response {content}");
+                return true;
             }
-            catch (HttpRequestException e)
+            catch (HttpRequestException)
             {
-                Console.WriteLine("Exception! Probably deck already added");
+                return false;
             }
         }
 
-        static async Task DoThings()
+        static async Task AddDecksToDoKWebsite()
         {
             Console.WriteLine("Paste mastervault user id (XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX): ");
             var userId = Console.ReadLine();
@@ -76,23 +82,41 @@ namespace KeyforgeScrape
 
             Console.WriteLine("Paste decks of keyforge token (Bearer ...): ");
             var deckOfKeyforgeToken = Console.ReadLine();
-            var response = await GetDecksOfUser(userId, token, 0, 30);
 
-            if (response == null) return;
-            var decks = response.data;
-
-            foreach(var deck in decks)
+            int page = 0;
+            while (true)
             {
-                Console.WriteLine($"{deck.id} -> {deck.name}");
-                await AddDeckToDecksOfKeyforge(deck.id, deckOfKeyforgeToken);
+                var response = await GetDecksOfUser(userId, token, page, 100);
+                page++;
+
+                if (response == null) break;
+                var decks = response.data;
+                if (decks.Count == 0) break;
+
+                foreach (var deck in decks)
+                {
+                    Console.WriteLine($"{deck.id} -> {deck.name} ... ");
+                    var result = await AddDeckToDecksOfKeyforge(deck.id, deckOfKeyforgeToken);
+
+                    if (result)
+                    {
+                        Console.WriteLine("SUCCESS");
+                    }
+                    else
+                    {
+                        Console.WriteLine("FAIL (already added?)");
+                    }
+                }
             }
+
+            Console.WriteLine("Finished.");
+            Console.ReadKey();
 
         }
 
         static void Main(string[] args)
         {
-            DoThings().Wait();
-            Console.ReadKey();
+            AddDecksToDoKWebsite().Wait();
         }
     }
 }

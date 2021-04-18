@@ -29,7 +29,7 @@ namespace KeyforgeScrape
         {
             var domain = "https://www.keyforgegame.com";
             var apiRequest = $"/api/users/{userId}/decks/";
-            var param = $"page={page+1}&page_size={pageSize}&search=&power_level=0,11&chains=0,24&only_favorites=0&ordering=-date";
+            var param = $"page={page+1}&page_size={pageSize}&ordering=-date"; //additional params "&search=&power_level=0,11&chains=0,24&only_favorites=0"
             var url = $"{domain}{apiRequest}?{param}";
 
             try
